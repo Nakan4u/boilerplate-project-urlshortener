@@ -38,20 +38,50 @@ app.get("/api/hello", function (req, res) {
 4) on get address by this id return origin address;
 */
 // short url task
-const dns = require('dns');
+var dns = require('dns');
+var mongoose = require('mongoose');
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true });
+
+var Schema = mongoose.Schema;
+var AddressSchema = new Schema({
+  url: {
+    type: String,
+    required: true,
+  },
+});
+var Address = mongoose.model('Address', AddressSchema);
+
 
 app.get("/api/shorturl/:url", function (req, res) {
   var urlParam = req.params.url;
   var regex = /\b(?!new|\s-\s).+/;
   var url = urlParam.match(regex)[0];
   
-  dns.lookup(url, (err) => {
-    if (err) {
-      res.json({error: err});
-    }
-    var sendData = {"original_url":url,"short_url":1}
-    res.json(sendData);
-  });
+  
+  if (url) {
+    // save address to the DB
+    dns.lookup(url, (err) => {
+      if (err) {
+        res.json({error: err});
+      }
+      var address = new Address({ url: url });
+      address.save(function(err, data) {
+        if (err) {
+          res.json({"error": err});
+        }
+        var sendData = {"original_url": url,"short_url": data};
+        res.json({error: err});
+      })
+    });
+  } else {
+    // get address By id
+    var id = req.params.url;
+    
+    Address.findById(id, function(err, data) {
+       if(err) { res.json({error: err}); }
+       res.json(data);
+    });
+  }
   
 });
 
